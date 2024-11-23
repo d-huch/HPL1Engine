@@ -24,13 +24,13 @@
 #include "impl/LowLevelGraphicsSDL.h"
 #include "impl/SDLBitmap2D.h"
 
-#include <GL/GLee.h>
+#include <GL/glew.h>
 #if defined(__APPLE__)&&defined(__MACH__)
 #include <OpenGL/glu.h>
 #else
 #include <GL/glu.h>
 #endif
-#include "SDL/SDL.h"
+#include "SDL2/SDL.h"
 
 
 namespace hpl {
