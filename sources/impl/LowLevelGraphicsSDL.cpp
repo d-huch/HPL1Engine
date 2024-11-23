@@ -133,22 +133,40 @@ namespace hpl {
 
 	cLowLevelGraphicsSDL::~cLowLevelGraphicsSDL()
 	{
-		//#ifdef WIN32
-		//	if(mhKeyTrapper) FreeLibrary(mhKeyTrapper);
-		//#endif
+		// Відновлення початкової гамми, якщо потрібно
+		// SDL2 більше не підтримує прямий метод SetGammaRamp для управління гаммою
+		// Можна використовувати спеціальні бібліотеки OpenGL або кастомні рішення, якщо потрібно.
 
-
-		SDL_SetGammaRamp(mvStartGammaArray[0],mvStartGammaArray[1],mvStartGammaArray[2]);
-
+		// Звільнення масивів
 		hplFree(mpVertexArray);
 		hplFree(mpIndexArray);
-		for(int i=0;i<MAX_TEXTUREUNITS;i++)	hplFree(mpTexCoordArray[i]);
+		for (int i = 0; i < MAX_TEXTUREUNITS; i++) {
+			hplFree(mpTexCoordArray[i]);
+		}
 
+		// Звільнення об'єктів OpenGL (якщо використовуються власні ресурси)
 		hplDelete(mpPixelFormat);
 
-		//Exit extra stuff
+		// Завершення додаткових компонентів
 		ExitCG();
+
+		// Завершення SDL_ttf (якщо використовується)
 		TTF_Quit();
+
+		// Звільнення OpenGL-контексту
+		if (mGLContext) {
+			SDL_GL_DeleteContext(mGLContext);
+			mGLContext = nullptr;
+		}
+
+		// Звільнення вікна SDL
+		if (mpWindow) {
+			SDL_DestroyWindow(mpWindow);
+			mpWindow = nullptr;
+		}
+
+		// Завершення роботи SDL
+		SDL_Quit();
 	}
 
 	//-----------------------------------------------------------------------
@@ -159,110 +177,79 @@ namespace hpl {
 
 	//-----------------------------------------------------------------------
 
-	bool cLowLevelGraphicsSDL::Init(int alWidth, int alHeight, int alBpp, int abFullscreen,
-									int alMultisampling, const tString& asWindowCaption)
-	{
-		mvScreenSize.x = alWidth;
-		mvScreenSize.y = alHeight;
-		mlBpp = alBpp;
+bool cLowLevelGraphicsSDL::Init(int alWidth, int alHeight, int alBpp, int abFullscreen,
+                                int alMultisampling, const tString& asWindowCaption)
+{
+    mvScreenSize.x = alWidth;
+    mvScreenSize.y = alHeight;
+    mlBpp = alBpp;
+    mlMultisampling = alMultisampling;
 
-		mlMultisampling = alMultisampling;
+    // Ініціалізація SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        FatalError("Unable to initialize SDL: %s\n", SDL_GetError());
+        return false;
+    }
 
-		//Set some GL Attributes
-		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
+    // Налаштування атрибутів OpenGL
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    // Multisampling
+    if (mlMultisampling > 0) {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, mlMultisampling);
+    }
 
-		// Multisampling
-		if(mlMultisampling > 0)
-		{
-			if(SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1)==-1)
-			{
-				Error("Multisample buffers not supported!\n");
-			}
-			else
-			{
-				if(SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, mlMultisampling)==-1)
-				{
-					Error("Couldn't set multisampling samples to %d\n",mlMultisampling);
-				}
-			}
-		}
+    // Створення вікна
+    Uint32 flags = SDL_WINDOW_OPENGL;
+    if (abFullscreen) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+    }
 
-		unsigned int mlFlags = SDL_OPENGL;
+    mpWindow = SDL_CreateWindow(asWindowCaption.c_str(),
+                                 SDL_WINDOWPOS_CENTERED,
+                                 SDL_WINDOWPOS_CENTERED,
+                                 alWidth, alHeight,
+                                 flags);
+    if (!mpWindow) {
+        FatalError("Unable to create SDL Window: %s\n", SDL_GetError());
+        return false;
+    }
 
-		if(abFullscreen) mlFlags |= SDL_FULLSCREEN;
+		mGLContext = SDL_GL_CreateContext(mpWindow);
+    if (!mGLContext) {
+        FatalError("Unable to create OpenGL Context: %s\n", SDL_GetError());
+        return false;
+    }
 
-		Log(" Setting video mode: %d x %d - %d bpp\n",alWidth, alHeight, alBpp);
-		mpScreen = SDL_SetVideoMode( alWidth, alHeight, alBpp, mlFlags);
-		if(mpScreen==NULL){
-			Error("Could not set display mode setting a lower one!\n");
-			mvScreenSize = cVector2l(640,480);
-			mpScreen = SDL_SetVideoMode( mvScreenSize.x, mvScreenSize.y, alBpp, mlFlags);
-			if(mpScreen==NULL)
-			{
-				FatalError("Unable to initialize display!\n");
-				return false;
-			}
-			else
-			{
-				SetWindowCaption(asWindowCaption);
-				CreateMessageBoxW(_W("Warning!"),
-									_W("Could not set displaymode and 640x480 is used instead!\n"));
-			}
-		}
-		else
-		{
-			SetWindowCaption(asWindowCaption);
-		}
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        FatalError("GLEW initialization failed: %s\n", glewGetErrorString(err));
+        return false;
+    }
 
-		Log(" Init Glee...");
-		if(GLeeInit())
-		{
-			Log("OK\n");
-		}
-		else
-		{
-			Log("ERROR!\n");
-			Error(" Couldn't init glee!\n");
-		}
+    CheckMultisampleCaps();
 
-		///Setup up windows specifc context:
-		#if defined(WIN32)
-			mGLContext = wglGetCurrentContext();
-			mDeviceContext = wglGetCurrentDC();
-		#elif defined(__linux__)
-		/*gDpy = XOpenDisplay(NULL);
-		glCtx = gPBuffer = 0;*/
-		#endif
+    SDL_ShowCursor(SDL_DISABLE);
 
-		//Check Multisample properties
-		CheckMultisampleCaps();
+    Log("Setting up OpenGL\n");
+    SetupGL();
 
-		//Turn off cursor as default
-		ShowCursor(false);
+    SDL_GL_SwapWindow(mpWindow);
 
-		//Gamma
-		mfGammaCorrection = 1.0f;
-		SDL_GetGammaRamp(mvStartGammaArray[0],mvStartGammaArray[1],mvStartGammaArray[2]);
-
-		SDL_SetGamma(mfGammaCorrection,mfGammaCorrection,mfGammaCorrection);
-
-		//GL
-		Log(" Setting up OpenGL\n");
-		SetupGL();
-
-		//Set the clear color
-		SDL_GL_SwapBuffers();
-
-		return true;
-	}
+    return true;
+}
 
 	//-----------------------------------------------------------------------
 
@@ -355,7 +342,7 @@ namespace hpl {
 		//Vertex Buffer Object
 		case eGraphicCaps_VertexBufferObject:
 			{
-				return GLEE_ARB_vertex_buffer_object?1:0;
+				return GLEW_ARB_vertex_buffer_object?1:0;
 			}
 
 		//Two Sided Stencil
@@ -364,8 +351,8 @@ namespace hpl {
 				//DEBUG:
 				//return 0;
 
-				if(GLEE_EXT_stencil_two_side) return 1;
-				else if(GLEE_ATI_separate_stencil) return 1;
+				if(GLEW_EXT_stencil_two_side) return 1;
+				else if(GLEW_ATI_separate_stencil) return 1;
 				else return 0;
 			}
 
@@ -390,14 +377,14 @@ namespace hpl {
 		//Texture Anisotropy
 		case eGraphicCaps_AnisotropicFiltering:
 			{
-				if(GLEE_EXT_texture_filter_anisotropic) return 1;
+				if(GLEW_EXT_texture_filter_anisotropic) return 1;
 				else return 0;
 			}
 
 		//Texture Anisotropy
 		case eGraphicCaps_MaxAnisotropicFiltering:
 			{
-				if(!GLEE_EXT_texture_filter_anisotropic) return 0;
+				if(!GLEW_EXT_texture_filter_anisotropic) return 0;
 
 				float fMax;
 				glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,&fMax);
@@ -407,7 +394,7 @@ namespace hpl {
 		//Multisampling
 		case eGraphicCaps_Multisampling:
 			{
-				if(GLEE_ARB_multisample) return 1;
+				if(GLEW_ARB_multisample) return 1;
 				return 0;
 			}
 
@@ -418,7 +405,7 @@ namespace hpl {
 				//Debbug:
 				//return 0;
 
-				if(GLEE_ARB_vertex_program) return 1;
+				if(GLEW_ARB_vertex_program) return 1;
 				else return 0;
 			}
 
@@ -428,14 +415,14 @@ namespace hpl {
 				//Debbug:
 				//return 0;
 
-				if(GLEE_ARB_fragment_program) return 1;
+				if(GLEW_ARB_fragment_program) return 1;
 				else return 0;
 			}
 
 		//GL NV register combiners
 		case eGraphicCaps_GL_NVRegisterCombiners:
 			{
-				if(GLEE_NV_register_combiners) return 1;
+				if(GLEW_NV_register_combiners) return 1;
 				else return 0;
 			}
 
@@ -450,7 +437,7 @@ namespace hpl {
 		//GL ATI Fragment Shader
 		case eGraphicCaps_GL_ATIFragmentShader:
 			{
-				if(GLEE_ATI_fragment_shader) return 1;
+				if(GLEW_ATI_fragment_shader) return 1;
 				else return 0;
 			}
 		}
@@ -473,12 +460,12 @@ namespace hpl {
 	void cLowLevelGraphicsSDL::SetVsyncActive(bool abX)
 	{
 		#if defined(WIN32)
-		if(GLEE_WGL_EXT_swap_control)
+		if(GLEW_WGL_EXT_swap_control)
 		{
 			wglSwapIntervalEXT(abX ? 1 : 0);
 		}
 		#elif defined(__linux__)
-		if (GLEE_GLX_SGI_swap_control)
+		if (GLEW_GLX_SGI_swap_control)
 		{
 			glXSwapIntervalSGI(abX ? 1 : 0);
 		}
@@ -489,7 +476,7 @@ namespace hpl {
 
 	void cLowLevelGraphicsSDL::SetMultisamplingActive(bool abX)
 	{
-		if(!GLEE_ARB_multisample || mlMultisampling<=0) return;
+		if(!GLEW_ARB_multisample || mlMultisampling<=0) return;
 
 		if(abX)
 			glEnable(GL_MULTISAMPLE_ARB);
@@ -505,7 +492,8 @@ namespace hpl {
 
 		mfGammaCorrection = afX;
 
-		SDL_SetGamma(mfGammaCorrection,mfGammaCorrection,mfGammaCorrection);
+		//SDL_SetGamma(mfGammaCorrection,mfGammaCorrection,mfGammaCorrection);
+		glEnable(GL_FRAMEBUFFER_SRGB);
 
 		/*Uint16 GammaArray[3][256];
 
@@ -783,7 +771,7 @@ namespace hpl {
 			LastTarget = GetGLTextureTargetEnum(mpCurrentTexture[alUnit]->GetTarget());
 
 		//Check if multi texturing is supported.
-		if(GLEE_ARB_multitexture){
+		if(GLEW_ARB_multitexture){
 			glActiveTextureARB(GL_TEXTURE0_ARB + alUnit);
 		}
 
@@ -914,10 +902,11 @@ namespace hpl {
 	{
 		glFlush();
 	}
+
 	void cLowLevelGraphicsSDL::SwapBuffers()
 	{
-		glFlush();
-		SDL_GL_SwapBuffers();
+		glFlush(); // Make sure all OpenGL commands are executed
+		SDL_GL_SwapWindow(mpWindow); // Swap the OpenGL buffers to the screen (replace SDL_GL_SwapBuffers)
 	}
 
 	//-----------------------------------------------------------------------
@@ -1102,7 +1091,7 @@ namespace hpl {
 
 	/*void cLowLevelGraphicsSDL::SetStencilTwoSideActive(bool abX)
 	{
-		if(GLEE_EXT_stencil_two_side)
+		if(GLEW_EXT_stencil_two_side)
 		{
 			glEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);
 		}
@@ -1112,7 +1101,7 @@ namespace hpl {
 
 	void cLowLevelGraphicsSDL::SetStencilFace(eStencilFace aFace)
 	{
-		if(GLEE_EXT_stencil_two_side)
+		if(GLEW_EXT_stencil_two_side)
 		{
 			if(aFace == eStencilFace_Front) glActiveStencilFaceEXT(GL_FRONT);
 			else							glActiveStencilFaceEXT(GL_BACK);
@@ -1139,7 +1128,7 @@ namespace hpl {
 	void cLowLevelGraphicsSDL::SetStencil(eStencilFunc aFunc,int alRef, unsigned int aMask,
 					eStencilOp aFailOp,eStencilOp aZFailOp,eStencilOp aZPassOp)
 	{
-		if(GLEE_EXT_stencil_two_side)
+		if(GLEW_EXT_stencil_two_side)
 		{
 			//glDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);//shouldn't be needed..
 			glActiveStencilFaceEXT(GL_FRONT);
@@ -1158,7 +1147,7 @@ namespace hpl {
 					eStencilOp aBackFailOp,eStencilOp aBackZFailOp,eStencilOp aBackZPassOp)
 	{
 		//Nvidia implementation
-		if(GLEE_EXT_stencil_two_side)
+		if(GLEW_EXT_stencil_two_side)
 		{
 			glEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);
 
@@ -1176,7 +1165,7 @@ namespace hpl {
 						GetGLStencilOpEnum(aBackZPassOp));
 		}
 		//Ati implementation
-		else if(GLEE_ATI_separate_stencil)
+		else if(GLEW_ATI_separate_stencil)
 		{
 			//Front
 			glStencilOpSeparateATI( GL_FRONT, GetGLStencilOpEnum(aFrontFailOp),
@@ -1200,7 +1189,7 @@ namespace hpl {
 
 	void cLowLevelGraphicsSDL::SetStencilTwoSide(bool abX)
 	{
-		if(GLEE_EXT_stencil_two_side)
+		if(GLEW_EXT_stencil_two_side)
 		{
 			glDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);
 		}
@@ -1259,7 +1248,7 @@ namespace hpl {
 	void cLowLevelGraphicsSDL::SetBlendFuncSeparate(eBlendFunc aSrcFactorColor, eBlendFunc aDestFactorColor,
 		eBlendFunc aSrcFactorAlpha, eBlendFunc aDestFactorAlpha)
 	{
-		if(GLEE_EXT_blend_func_separate)
+		if(GLEW_EXT_blend_func_separate)
 		{
 			glBlendFuncSeparateEXT(GetGLBlendEnum(aSrcFactorColor),
 								GetGLBlendEnum(aDestFactorColor),

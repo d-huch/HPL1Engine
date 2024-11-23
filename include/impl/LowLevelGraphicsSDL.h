@@ -24,8 +24,8 @@
 #include <Cg/cg.h>
 #include <Cg/cgGL.h>
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_ttf.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 // Unix's X11 Defines DestoryAll which collides with methods
 #undef DestroyAll
 
@@ -238,6 +238,8 @@ namespace hpl {
 		GLenum GetGLTextureTargetEnum(eTextureTarget aType);
 
 	private:
+		SDL_Window* mpWindow;
+		SDL_GLContext mGLContext;
 		cVector2l mvScreenSize;
 		cVector2f mvVirtualSize;
 		int mlMultisampling;

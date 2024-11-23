@@ -18,7 +18,7 @@
  */
 #include "impl/MouseSDL.h"
 
-#include "SDL/SDL.h"
+#include "SDL2/SDL.h"
 
 #include "graphics/LowLevelGraphics.h"
 #include "impl/LowLevelInputSDL.h"
@@ -104,11 +104,11 @@ namespace hpl {
 					case SDL_BUTTON_LEFT: mvMButtonArray[eMButton_Left] = bButtonIsDown;break;
 					case SDL_BUTTON_MIDDLE: mvMButtonArray[eMButton_Middle] = bButtonIsDown;break;
 					case SDL_BUTTON_RIGHT: mvMButtonArray[eMButton_Right] = bButtonIsDown;break;
-					case SDL_BUTTON_WHEELUP:
+					case SDL_BUTTON_X1:
 						mvMButtonArray[eMButton_WheelUp] = bButtonIsDown;
 						if(bButtonIsDown) mbWheelUpMoved = true;
 						break;
-					case SDL_BUTTON_WHEELDOWN:
+					case SDL_BUTTON_X2:
 						mvMButtonArray[eMButton_WheelDown] = bButtonIsDown;
 						if(bButtonIsDown) mbWheelDownMoved = true;
 						break;

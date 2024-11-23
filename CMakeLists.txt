@@ -12,6 +12,8 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../OALWrapper/include
 	${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/include
 	${CMAKE_SOURCE_DIR}/libs/angelscript-sdk-2.37.0/angelscript/include
+	${CMAKE_SOURCE_DIR}/libs/Cg-Toolkit/mac/include
+	${CMAKE_SOURCE_DIR}/libs/newton-dynamics/newton-3.14/sdk/dgNewton
 )
 file(GLOB_RECURSE all_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/sources/*.cpp

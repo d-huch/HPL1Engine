@@ -20,33 +20,33 @@
 #define HPL_OPENAL_SOUND_DATA_H
 
 #include "sound/SoundData.h"
-
-#include "OALWrapper/OAL_Funcs.h"
+//#include "OAL_Funcs.h"
 
 namespace hpl {
 
-	class cOpenALSoundData : public iSoundData
-	{
-	public:
-		cOpenALSoundData(tString asName, bool abStream);
-		~cOpenALSoundData();
+class cOAL_Sample; // Forward declaration
+class cOAL_Stream; // Forward declaration
 
-		bool CreateFromFile(const tString &asFile);
+class cOpenALSoundData : public iSoundData
+{
+public:
+  cOpenALSoundData(tString asName, bool abStream);
+  ~cOpenALSoundData();
 
-		iSoundChannel* CreateChannel(int alPriority);
+  bool CreateFromFile(const tString &asFile);
 
-		bool IsStream(){ return mbStream;}
+  iSoundChannel* CreateChannel(int alPriority);
 
-		bool IsStereo();
+  bool IsStream(){ return mbStream;}
 
-		cOAL_Sample*	GetSample(){ return ( mpSample ); } //static_cast<cOAL_Sample*> (mpSoundData));}
-		cOAL_Stream*	GetStream(){ return ( mpStream ); } //static_cast<cOAL_Stream*> (mpSoundData));}
+  bool IsStereo();
 
-	private:
-		cOAL_Sample*	mpSample;
-		cOAL_Stream*	mpStream;
+  cOAL_Sample*	GetSample(){ return ( mpSample ); }
+  cOAL_Stream*	GetStream(){ return ( mpStream ); }
 
-//iOAL_Loadable*	mpSoundData;
-	};
+private:
+  cOAL_Sample*	mpSample;
+  cOAL_Stream*	mpStream;
+};
 };
 #endif // HPL_OPENAL_SOUND_DATA_H
