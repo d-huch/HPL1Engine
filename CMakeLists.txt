@@ -13,7 +13,8 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/include
 	${CMAKE_SOURCE_DIR}/libs/angelscript-sdk-2.37.0/angelscript/include
 	${CMAKE_SOURCE_DIR}/libs/Cg-Toolkit/mac/include
-	${CMAKE_SOURCE_DIR}/libs/newton-dynamics/newton-3.14/sdk/dgNewton
+	${CMAKE_SOURCE_DIR}/libs/newton-dynamics-2.35/coreLibrary_200/source/newton
+	${CMAKE_SOURCE_DIR}/libs/OALWrapper/include
 )
 file(GLOB_RECURSE all_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/sources/*.cpp
@@ -49,3 +50,6 @@ link_libraries(${GLEW_LIBRARY})
 
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
+
+find_package(OpenAL REQUIRED)
+target_link_libraries(HPL PRIVATE OpenAL::OpenAL)

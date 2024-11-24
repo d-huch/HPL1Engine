@@ -29,7 +29,7 @@
 #ifndef WIN32
 #include <unistd.h>
 // Include FLTK
-#include "FL/fl_ask.H"
+//#include "FL/fl_ask.H"
 #endif
 
 #define _UNICODE
@@ -450,7 +450,7 @@ namespace hpl {
 		sMess += asCaption;
 		sMess +=_W("\n\n");
 		sMess += text;
-		fl_alert("%ls\n\n%ls",asCaption,text);
+		//fl_alert("%ls\n\n%ls",asCaption,text);
 		#endif
 	}
 
@@ -692,7 +692,7 @@ namespace hpl {
 
 	void SetWindowCaption(const tString &asName)
 	{
-		SDL_WM_SetCaption(asName.c_str(),"");
+		//SDL_WM_SetCaption(asName.c_str(),"");
 	}
 
 	//-----------------------------------------------------------------------
